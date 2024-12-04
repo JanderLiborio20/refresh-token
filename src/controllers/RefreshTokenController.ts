@@ -16,8 +16,19 @@ export class RefreshTokenController {
 
     const { refreshToken } = result.data;
 
-    RefreshToken.validate(refreshToken);
+    const accountId = RefreshToken.validate(refreshToken);
 
-    return reply.send({ token: refreshToken });
+    if (!accountId) {
+      return reply.code(401).send({ errors: 'Invalid refresh token' });
+    }
+
+    const accessToken = await reply.jwtSign({ sub: accountId });
+
+    const newRefreshToken = RefreshToken.generate(accountId);
+
+    return reply.code(200).send({
+      accessToken,
+      newRefreshToken,
+    });
   };
 }

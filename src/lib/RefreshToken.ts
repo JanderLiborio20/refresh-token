@@ -16,7 +16,8 @@ export class RefreshToken {
   static validate(token: string) {
     try {
       const payload = verify(token, this.secret) as JwtPayload;
-      console.log('payload: ', payload);
+
+      return payload.sub;
     } catch {
       return;
     }
