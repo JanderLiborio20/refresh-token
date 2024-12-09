@@ -14,4 +14,32 @@ export class RefreshTokenRepository {
       },
     });
   }
+
+  static delete(token: string) {
+    return prismaClient.refreshToken.deleteMany({
+      where: {
+        token,
+      },
+    });
+  }
+
+  static findByToken() {}
+
+  static createDelete(refreshToken: string, accountId: string, token: string) {
+    return prismaClient.$transaction(async (tsx) => {
+      await Promise.all([
+        tsx.refreshToken.deleteMany({
+          where: {
+            token: refreshToken,
+          },
+        }),
+        tsx.refreshToken.create({
+          data: {
+            accountId,
+            token,
+          },
+        }),
+      ]);
+    });
+  }
 }

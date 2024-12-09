@@ -1,6 +1,7 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { RefreshToken } from '../lib/RefreshToken';
+import { RefreshTokenRepository } from '../repositories/RefreshTokenRepository';
 
 export class RefreshTokenController {
   static schema = z.object({
@@ -22,9 +23,22 @@ export class RefreshTokenController {
       return reply.code(401).send({ errors: 'Invalid refresh token' });
     }
 
-    const accessToken = await reply.jwtSign({ sub: accountId });
+    const refreshTokenAlreadyused = await RefreshTokenRepository.findByToken(
+      refreshToken
+    );
 
+    if (!refreshTokenAlreadyused) {
+      return reply.code(401).send({ errors: 'Invalid refresh token' });
+    }
+
+    const accessToken = await reply.jwtSign({ sub: accountId });
     const newRefreshToken = RefreshToken.generate(accountId);
+
+    await RefreshTokenRepository.createDelete(
+      refreshToken,
+      accountId,
+      newRefreshToken
+    );
 
     return reply.code(200).send({
       accessToken,
