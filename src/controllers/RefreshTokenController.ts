@@ -1,11 +1,11 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { RefreshToken } from '../lib/RefreshToken';
+import { EXP_TIME_IN_DAYS } from '../config/constants';
 import { RefreshTokenRepository } from '../repositories/RefreshTokenRepository';
 
 export class RefreshTokenController {
   static schema = z.object({
-    refreshToken: z.string().min(1),
+    refreshToken: z.string().uuid(),
   });
 
   static handle = async (request: FastifyRequest, reply: FastifyReply) => {
@@ -15,34 +15,34 @@ export class RefreshTokenController {
       return reply.code(400).send({ errors: result.error.issues });
     }
 
-    const { refreshToken } = result.data;
+    const { refreshToken: refreshTokenId } = result.data;
 
-    const accountId = RefreshToken.validate(refreshToken);
+    const refreshToken = await RefreshTokenRepository.findById(refreshTokenId);
 
-    if (!accountId) {
-      return reply.code(401).send({ errors: 'Invalid refresh token' });
+    if (!refreshToken) {
+      return reply.code(401).send({ errors: 'Invalid refresh token.' });
     }
 
-    const refreshTokenAlreadyused = await RefreshTokenRepository.findByToken(
-      refreshToken
-    );
-
-    if (!refreshTokenAlreadyused) {
-      return reply.code(401).send({ errors: 'Invalid refresh token' });
+    if (Date.now() > refreshToken.expiresAt.getTime()) {
+      await RefreshTokenRepository.deleteById(refreshToken.id);
+      return reply.code(401).send({ errors: 'Expired refresh token.' });
     }
 
-    const accessToken = await reply.jwtSign({ sub: accountId });
-    const newRefreshToken = RefreshToken.generate(accountId);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + EXP_TIME_IN_DAYS);
 
-    await RefreshTokenRepository.createDelete(
-      refreshToken,
-      accountId,
-      newRefreshToken
-    );
+    const [accessToken, newRefreshToken] = await Promise.all([
+      reply.jwtSign({ sub: refreshToken.accountId }),
+      RefreshTokenRepository.create({
+        accountId: refreshToken.accountId,
+        expiresAt,
+      }),
+      await RefreshTokenRepository.deleteById(refreshToken.id),
+    ]);
 
     return reply.code(200).send({
       accessToken,
-      newRefreshToken,
+      refreshToken: newRefreshToken.id,
     });
   };
 }
