@@ -23,7 +23,11 @@ export class RefreshTokenRepository {
     });
   }
 
-  static findByToken() {}
+  static findByToken(token: string) {
+    return prismaClient.refreshToken.findFirst({
+      where: { token },
+    });
+  }
 
   static createDelete(refreshToken: string, accountId: string, token: string) {
     return prismaClient.$transaction(async (tsx) => {

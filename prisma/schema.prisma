@@ -25,5 +25,6 @@ model RefreshToken {
 
   account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
+  @@index([token])
   @@map("refresh_tokens")
 }
